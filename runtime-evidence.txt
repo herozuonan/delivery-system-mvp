@@ -1,0 +1,6 @@
+Repository: https://github.com/herozuonan/delivery-system-mvp
+Commit: a8654e7b8233102e5aeb7bfa56264ffae898e3ad
+
+Local container test:
+- image: ghcr.io/herozuonan/delivery-system-mvp:dev
+- curl http://127.0.0.1:18080/healthz => ok
