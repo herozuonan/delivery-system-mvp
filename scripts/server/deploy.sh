@@ -11,7 +11,6 @@ TAG=${TAG:-latest}
 PORT=${PORT:-8080}
 
 STATE_DIR=${STATE_DIR:-/opt/${APP_NAME}}
-PREV_FILE="$STATE_DIR/previous_tag"
 mkdir -p "$STATE_DIR"
 
 runtime=""
@@ -24,10 +23,13 @@ fi
 
 echo "Runtime=$runtime"
 
-echo "Saving previous tag (best-effort)..."
-if $runtime ps --format '{{.Image}} {{.Names}}' 2>/dev/null | grep -q " ${APP_NAME}$"; then
-  prev_image=$($runtime ps --format '{{.Image}} {{.Names}}' | awk -v n="$APP_NAME" '$2==n{print $1}')
-  echo "$prev_image" | tee "$STATE_DIR/previous_image"
+# Record current image as rollback target (must run BEFORE removing the container).
+if $runtime ps --format '{{.Image}} {{.Names}}' 2>/dev/null | awk '{print $2" "$1}' | grep -q "^${APP_NAME} "; then
+  current_image=$($runtime ps --format '{{.Names}} {{.Image}}' | awk -v n="$APP_NAME" '$1==n{print $2}')
+  if [[ -n "$current_image" ]]; then
+    echo "Recording previous_image=$current_image"
+    echo "$current_image" > "$STATE_DIR/previous_image"
+  fi
 fi
 
 # Optional GHCR auth (recommended if pulls fail)
@@ -50,7 +52,7 @@ echo "Health check"
 for i in {1..20}; do
   if curl -fsS "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1; then
     echo "ok"
-    echo "$TAG" > "$PREV_FILE"  # used as "current" for now
+    echo "$TAG" > "$STATE_DIR/current_tag"
     exit 0
   fi
   sleep 1
