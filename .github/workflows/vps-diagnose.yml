@@ -1,0 +1,58 @@
+name: vps-diagnose
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnose on VPS (containers/ports/http probes)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            echo "== whoami =="; whoami; id
+            echo "== uptime =="; uptime || true
+            echo "== os =="; cat /etc/os-release 2>/dev/null || true
+
+            echo "== containers (podman/docker) =="
+            if command -v podman >/dev/null 2>&1; then
+              podman ps --format '{{.Names}} {{.Image}} {{.Ports}} {{.Status}}'
+            fi
+            if command -v docker >/dev/null 2>&1; then
+              docker ps --format '{{.Names}} {{.Image}} {{.Ports}} {{.Status}}' || true
+            fi
+
+            echo "== port mapping =="
+            if command -v podman >/dev/null 2>&1; then
+              for n in ai-cs-api delivery-system-mvp; do
+                echo "-- podman port $n --";
+                podman port "$n" || true;
+              done
+            fi
+
+            echo "== listen ports (best-effort) =="
+            if command -v ss >/dev/null 2>&1; then
+              ss -lntp | egrep ':18880|:8000|:8080|:18881' || true
+            elif command -v netstat >/dev/null 2>&1; then
+              netstat -lntp 2>/dev/null | egrep ':18880|:8000|:8080|:18881' || true
+            fi
+
+            echo "== localhost HTTP probes (best-effort) =="
+            for u in \
+              http://127.0.0.1:18880/ \
+              http://127.0.0.1:18880/healthz \
+              http://127.0.0.1:8000/ \
+              http://127.0.0.1:8000/healthz \
+              http://127.0.0.1:8080/healthz \
+            ; do
+              echo "-- curl $u --";
+              curl -i --max-time 3 "$u" 2>&1 | head -n 20 || true;
+            done
