@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: delivery-system-mvp:local
+    container_name: delivery-system-mvp
+    ports:
+      - "8080:8080"
+    environment:
+      - ADDR=:8080
+    restart: unless-stopped
