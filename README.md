@@ -4,7 +4,7 @@
 - 代码提交 → 构建 → 打包镜像 → 部署到单VPS（Docker Compose）→ 健康检查
 - 可回滚（上一版本）
 - 全过程证据可落盘（evidence/）
-
+-
 ## 快速开始（本地）
 ```bash
 make dev
